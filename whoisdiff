@@ -1,0 +1,47 @@
+#!/bin/sh
+
+DOMAIN=
+HOST=whois.internic.net
+LOG=./
+RETURN=0
+
+usage() {
+	echo >&2 "Usage: $0 -d domain.name [-h whois.server] [-l log/directory]"
+}
+
+while getopts d:h:l: OPT; do
+	case "$OPT" in
+		d)
+			DOMAIN="$OPTARG"
+			;;
+		h)
+			HOST="$OPTARG"
+			;;
+		l)
+			LOG="$OPTARG"
+			;;
+		*)
+			usage
+			exit 1
+	esac
+done
+
+if [ "$DOMAIN" = "" ]; then
+	usage
+	exit 1
+fi
+
+FILE="$LOG/$DOMAIN"
+
+mkdir -p "$LOG"
+whois -h "$HOST" "$DOMAIN" | sed '/^>>>/d' > "$FILE-new"
+if [ -e "$FILE" ]; then
+	if ! diff "$FILE" "$FILE-new" > /dev/null; then
+		diff -au "$FILE" "$FILE-new"
+		MTIME=`stat -c %Y "$FILE"`
+		mv "$FILE" "$FILE-`date +%Y-%m-%d-%H-%M-%S --utc --date=@"$MTIME"`"
+		RETURN=1
+	fi
+fi
+mv "$FILE-new" "$FILE"
+exit "$RETURN"
